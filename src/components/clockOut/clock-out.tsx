@@ -56,18 +56,20 @@ const ClockOut: React.FC = () => {
             return;
         }
         const users = snapshot.val();
-        let matchedUser: { name: string } | null = null;
+        type User = { name: string; embedding: number[] };
+
+        let matchedUser: User | null = null;
 
         for (const userId in users) {
             const storedEmbedding = new Float32Array(users[userId].embedding);
-            if (storedEmbedding.length !== detection.descriptor.length) {
+            if (storedEmbedding.length === detection.descriptor.length) {
                 const distance = faceapi.euclideanDistance(detection.descriptor, storedEmbedding);
                 if (distance < 0.6) { // Adjust threshold as needed
-                    matchedUser = users[userId];
+                    matchedUser = users[userId] as User;
                     break;
+                } else {
+                    console.warn(`embedding length mismatch for user ${userId}: expected ${storedEmbedding.length}, got ${detection.descriptor.length}`);
                 }
-            } else {
-                console.warn(`embedding length mismatch for user ${userId}: expected ${storedEmbedding.length}, got ${detection.descriptor.length}`);
             }
         }
         if (matchedUser) {
@@ -83,7 +85,7 @@ const ClockOut: React.FC = () => {
         }
         else {
             setStatus("❌ No matching user found. Please register first.");
-            navigate("/register");
+            // navigate("/register");
         }
     };
     return (
@@ -99,6 +101,9 @@ const ClockOut: React.FC = () => {
             </Button>
             {status && <p className='mt-2 text-center'>{status}</p>}
             {/* <WebcamCapture onCapture={handleClockOut} /> */}
+            <Button onClick={() => navigate("/")} className='w-[200px] bg-[#FF5733] text-white mt-2'>
+                Go Back
+            </Button>
 
         </div>
     )

@@ -6,6 +6,7 @@ import { ref, set } from 'firebase/database';
 import { useNavigate } from 'react-router';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '../../firebase'; // Adjust the import based on your firebase configuration
+import { Button } from '../ui/button';
 // import { useQuery } from '@tanstack/react-query';
 
 const RegisterNewUser: React.FC = () => {
@@ -90,7 +91,7 @@ const RegisterNewUser: React.FC = () => {
             <div className='flex flex-col items-center mt-2'>
                 <input type="text" ref={nameRef} placeholder="Name" className='border border-gray-300 p-2 rounded-md w-full mb-2' />
                 <input type="email" ref={emailRef} placeholder="Email" className='border border-gray-300 p-2 rounded-md w-full mb-2' />
-                <button
+                <Button
                     onClick={async () => {
                         const imageSrc = webcamRef.current?.getScreenshot();
                         await handleCapture(imageSrc);
@@ -98,7 +99,10 @@ const RegisterNewUser: React.FC = () => {
                     className='bg-[#7EB800] text-white p-2 rounded-md w-full'
                 >
                     {loading ? "Registering..." : "Register"}
-                </button>
+                </Button>
+                <Button onClick={() => navigate("/")} className='w-[200px] bg-[#FF5733] text-white mt-2'>
+                    Go Back
+                </Button>
             </div>
         </div>
     )

@@ -95,6 +95,7 @@ const ClockIn: React.FC = () => {
                 date: new Date().toLocaleDateString()
             });
             setStatus(`✅ Clocked in successfully! Welcome back, ${matchedUser.name}!`);
+            setLoading(false);
         } else {
             setStatus("❌ No matching user found. Please register first.");
             navigate("/register");
