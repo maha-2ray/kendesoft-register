@@ -1,11 +1,19 @@
 import React from 'react'
-import WebcamCapture from '../../pages/Scanner/scanner'
+// import WebcamCapture from '../../pages/Scanner/scanner'
+import Webcam from 'react-webcam';
+import * as faceapi from 'face-api.js'
+import { ref, set } from 'firebase/database';
 import { useNavigate } from 'react-router';
-import { useQuery } from '@tanstack/react-query';
+import { v4 as uuidv4 } from 'uuid';
+import { db } from '../../firebase'; // Adjust the import based on your firebase configuration
+// import { useQuery } from '@tanstack/react-query';
 
 const RegisterNewUser: React.FC = () => {
+    const webcamRef = React.useRef<Webcam>(null);
     const nameRef = React.useRef<HTMLInputElement>(null)
     const emailRef = React.useRef<HTMLInputElement>(null);
+    const [status, setStatus] = React.useState<string | null>("");
+    const [loading, setLoading] = React.useState<boolean>(false);
     const navigate = useNavigate();
     const newMemberMessages = [
         "Welcome, new member! We're excited to have you on board!",
@@ -24,54 +32,74 @@ const RegisterNewUser: React.FC = () => {
         "Hi there, new member! Let's embark on this exciting journey together!",
         "Welcome, new member! Your contributions will make a difference!",
     ];
-    const handleCapture = (imageSrc: string | null | undefined) => {
-        try {
-            if (!nameRef.current?.value || !emailRef.current?.value) {
-                throw new Error("Name and Email are required");
-            }
-            const name = nameRef.current.value;
-            const email = emailRef.current.value;
-            const newUser = {
-                name: name,
-                email: email,
-                image: imageSrc
-            }
-            fetch('https://kendesoft-register-default-rtdb.firebaseio.com/users.json', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(newUser)
-            })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error("Failed to register new user");
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    console.log("New user registered successfully:", data);
-                    nameRef.current!.value = '';
-                    emailRef.current!.value = '';
-                })
-            }
-            catch (error) {
-                console.error("Error registering new user:", error);
-            }
-            navigate("/");
-        };
-        
-        // Redirect to clock-in page after registration
+    React.useEffect(() => {
+        async function loadModels() {
+            await faceapi.nets.ssdMobilenetv1.loadFromUri('/models');
+            await faceapi.nets.faceLandmark68Net.loadFromUri('/models');
+            await faceapi.nets.faceRecognitionNet.loadFromUri('/models');
+        }
+        loadModels();
+
+    }, [])
+    const handleCapture = async (imageSrc: string | null | undefined) => {
+        if (!nameRef.current?.value || !emailRef.current?.value) {
+            setStatus("Name and Email are required");
+            return;
+        }
+        const name = nameRef.current.value;
+        const email = emailRef.current.value;
+        const image = await faceapi.fetchImage(imageSrc || '');
+        const detection = await faceapi.detectSingleFace(image).withFaceLandmarks().withFaceDescriptor();
+        if (!detection) {
+            setStatus("No face detected. Please try again.");
+            return;
+        }
+        setLoading(true);
+        const descriptorAray = Array.from(detection.descriptor);
+
+        const userId = uuidv4();
+
+        await set(ref(db, `users/${userId}`), {
+            name: name,
+            email: email,
+            image: imageSrc,
+            embedding: descriptorAray
+        });
+        setStatus(`✅ Registered ${name} successfully!`);
+        setLoading(false);
+        nameRef.current!.value = '';
+        emailRef.current!.value = '';
+        navigate("/");
+    }
+
     return (
-        <div>
+        <div className='flex flex-col items-center justify-center mt-4'>
             <h1 className='text-2xl font-bold text-center text-[#7EB800]'>{newMemberMessages[Math.floor(Math.random() * newMemberMessages.length)]}</h1>
-            {/* Add your clock-in functionality here */}
-            <WebcamCapture onCapture={handleCapture} />
-            <form action="" className='flex flex-col items-center mt-4 bg-[#f0f0f0] p-4 rounded-lg shadow-md'>
-                <input type="text" ref={nameRef} placeholder="Name" />
-                <input type="email" ref={emailRef} placeholder="Email" />
-                <button type="submit">Register</button>
-            </form>
+            <p>{status}</p>
+            <Webcam
+                audio={false}
+                ref={webcamRef}
+                screenshotFormat="image/jpeg"
+                width={300}
+                height={200}
+                videoConstraints={{
+                    facingMode: 'user',
+                }}
+                className='rounded-full'
+            />
+            <div className='flex flex-col items-center mt-2'>
+                <input type="text" ref={nameRef} placeholder="Name" className='border border-gray-300 p-2 rounded-md w-full mb-2' />
+                <input type="email" ref={emailRef} placeholder="Email" className='border border-gray-300 p-2 rounded-md w-full mb-2' />
+                <button
+                    onClick={async () => {
+                        const imageSrc = webcamRef.current?.getScreenshot();
+                        await handleCapture(imageSrc);
+                    }}
+                    className='bg-[#7EB800] text-white p-2 rounded-md w-full'
+                >
+                    {loading ? "Registering..." : "Register"}
+                </button>
+            </div>
         </div>
     )
 }
